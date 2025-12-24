@@ -5,7 +5,7 @@ pipeline {
         APP_DIR = "/home/ubuntu/flask-app"
         VENV_DIR = "venv"
         FLASK_PORT = "5000"
-        FLASK_EC2 = "ubuntu@13.232.139.108"
+        FLASK_EC2 = "ubuntu@3.109.207.92"
     }
 
     stages {
@@ -13,7 +13,7 @@ pipeline {
         stage('Clone Repository') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/jsvelu/flask-app.git'
+                    url: 'https://github.com/Thilakeshaws27/flaskdemoapp.git'
             }
         }
 
@@ -41,7 +41,7 @@ pipeline {
             steps {
                 sh '''
                 ssh ${FLASK_EC2} "mkdir -p ${APP_DIR}"
-                scp -r app.py requirements.txt Jenkinsfile templates ubuntu@13.232.139.108:/home/ubuntu/flask-app
+                scp -r app.py requirements.txt Jenkinsfile templates ubuntu@3.109.207.92:/home/ubuntu/flask-app
 
                 ssh ${FLASK_EC2} "
                   cd ${APP_DIR} &&
