@@ -12,7 +12,7 @@ def about():
     
 @app.route("/contact") 
 def contact(): 
-	return "<h1>FLASK DEMO</H1>"
+	return "<h1>FLASK DEMO FOR CI CD Pipeline</H1>"
 
 @app.route("/testform")
 def testform():
