@@ -2,22 +2,19 @@ pipeline {
     agent any
 
     environment {
-        APP_DIR = "/home/ubuntu/flask-app"
-        VENV_DIR = "venv"
-        FLASK_PORT = "5000"
         FLASK_EC2 = "ubuntu@3.109.207.92"
+        APP_DIR = "/home/ubuntu/flask-app"
+        SSH_KEY = "/var/lib/jenkins/.ssh/id_ed25519"
     }
 
     stages {
-
-        stage('Clone Repository') {
+        stage('Checkout Source') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Thilakeshaws27/flaskdemoapp.git'
+                checkout scm
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Install Dependencies Locally') {
             steps {
                 sh '''
                 python3 -m venv venv
@@ -32,7 +29,10 @@ pipeline {
             steps {
                 sh '''
                 . venv/bin/activate
-                python -c "import flask; print('Flask OK')"
+                python - << 'EOF'
+import flask
+print("Flask OK:", flask.__version__)
+EOF
                 '''
             }
         }
@@ -40,16 +40,33 @@ pipeline {
         stage('Deploy to Flask EC2') {
             steps {
                 sh '''
-                ssh ${FLASK_EC2} "mkdir -p ${APP_DIR}"
-                scp -r app.py requirements.txt Jenkinsfile templates ubuntu@3.109.207.92:/home/ubuntu/flask-app
+                # Create app directory on remote
+                ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${FLASK_EC2} \
+                    "mkdir -p ${APP_DIR}"
 
-                ssh ${FLASK_EC2} "
+                # Copy the application files
+                scp -i ${SSH_KEY} -o StrictHostKeyChecking=no \
+                    app.py requirements.txt templates ${FLASK_EC2}:${APP_DIR}/
+
+                # Set up virtual environment and start Flask
+                ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${FLASK_EC2} "
                   cd ${APP_DIR} &&
-                  python3 -m venv venv &&
+
+                  # create venv if missing
+                  if [ ! -d venv ]; then
+                    python3 -m venv venv
+                  fi &&
+
+                  # activate and install
                   . venv/bin/activate &&
+                  pip install --upgrade pip &&
                   pip install -r requirements.txt &&
-                  pkill -f app.py || true &&
-                  nohup venv/bin/python app.py &
+
+                  # stop old app process
+                  pkill -f 'venv/bin/python app.py' || true &&
+
+                  # start app in background with logging
+                  nohup venv/bin/python app.py > flask.log 2>&1 &
                 "
                 '''
             }
